@@ -26,7 +26,7 @@
       "artifactName": "minutes-ringrtc-v2.74.0-minutes.0-linux-x64"
     },
     "windows-x64": {
-      "runner": "windows-2025",
+      "runner": "windows-2022",
       "webrtcPlatform": "windows-x64",
       "targetArch": "x64",
       "cargoTarget": "x86_64-pc-windows-msvc",
