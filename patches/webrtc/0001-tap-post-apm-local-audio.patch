@@ -1,7 +1,8 @@
 diff --git a/ringrtc/rffi/BUILD.gn b/ringrtc/rffi/BUILD.gn
+index 49d8eeb..cc4d21d 100644
 --- a/ringrtc/rffi/BUILD.gn
 +++ b/ringrtc/rffi/BUILD.gn
-@@ -85,7 +85,10 @@ if (is_linux || is_mac || is_win) {
+@@ -105,7 +105,10 @@ if (is_linux || is_mac || is_win) {
    rtc_library("libringrtc_rffi") {
      visibility = [ "*" ]
  
@@ -13,7 +14,7 @@ diff --git a/ringrtc/rffi/BUILD.gn b/ringrtc/rffi/BUILD.gn
  
      configs += [ ":ringrtc_rffi_config" ]
  
-@@ -94,9 +97,27 @@ if (is_linux || is_mac || is_win) {
+@@ -114,10 +117,28 @@ if (is_linux || is_mac || is_win) {
      allow_poison = [ "environment_construction" ]
  
      deps = [
@@ -22,6 +23,7 @@ diff --git a/ringrtc/rffi/BUILD.gn b/ringrtc/rffi/BUILD.gn
 +      "//audio",
 +      "//common_audio",
        "//api:field_trials",
+       "//api/video:adapted_video_track_source",
        "//sdk:media_constraints",
        "//media:rtc_simulcast_encoder_adapter",
      ]
@@ -41,28 +43,13 @@ diff --git a/ringrtc/rffi/BUILD.gn b/ringrtc/rffi/BUILD.gn
 +    }
 +  }
  }
-diff --git a/ringrtc/rffi/api/audio_device_intf.h b/ringrtc/rffi/api/audio_device_intf.h
---- a/ringrtc/rffi/api/audio_device_intf.h
-+++ b/ringrtc/rffi/api/audio_device_intf.h
-@@ -116,6 +116,12 @@ typedef struct {
- 
-   // Playout delay
-   int32_t (*playoutDelay)(void* adm_borrowed, uint16_t* delayMS);
-+
-+  // Local capture after WebRTC audio processing (AEC/NS/AGC/HPF).
-+  bool (*audioTapIsActive)(void* adm_borrowed);
-+  bool (*pushProcessedLocalAudio)(void* adm_borrowed,
-+                                  const int16_t* samples,
-+                                  size_t sample_count);
- } AudioDeviceCallbacks;
- 
- #endif  // RFFI_API_AUDIO_DEVICE_INTF_H__
 diff --git a/ringrtc/rffi/src/peer_connection_factory.cc b/ringrtc/rffi/src/peer_connection_factory.cc
+index 71e7faa..1985c36 100644
 --- a/ringrtc/rffi/src/peer_connection_factory.cc
 +++ b/ringrtc/rffi/src/peer_connection_factory.cc
-@@ -32,6 +32,9 @@
- #include "rffi/api/peer_connection_observer_intf.h"
+@@ -33,6 +33,9 @@
  #include "rffi/src/audio_device.h"
+ #include "rffi/src/injectable_network.h"
  #include "rffi/src/peer_connection_observer.h"
 +#if !defined(WEBRTC_IOS) && !defined(WEBRTC_ANDROID)
 +#include "rffi/src/processed_audio_frame_processor.h"
@@ -70,7 +57,7 @@ diff --git a/ringrtc/rffi/src/peer_connection_factory.cc b/ringrtc/rffi/src/peer
  #include "rffi/src/ptr.h"
  #include "rffi/src/rtp_observer.h"
  #include "rtc_base/log_sinks.h"
-@@ -162,6 +165,10 @@ class PeerConnectionFactoryWithOwnedThreads
+@@ -176,6 +179,10 @@ class PeerConnectionFactoryWithOwnedThreads
      auto builder = std::make_unique<BuiltinAudioProcessingBuilder>();
      builder->SetConfig(config);
      dependencies.audio_processing_builder = std::move(builder);
@@ -83,6 +70,7 @@ diff --git a/ringrtc/rffi/src/peer_connection_factory.cc b/ringrtc/rffi/src/peer
      dependencies.video_encoder_factory =
 diff --git a/ringrtc/rffi/src/processed_audio_frame_processor.cc b/ringrtc/rffi/src/processed_audio_frame_processor.cc
 new file mode 100644
+index 0000000..bf45958
 --- /dev/null
 +++ b/ringrtc/rffi/src/processed_audio_frame_processor.cc
 @@ -0,0 +1,61 @@
@@ -149,6 +137,7 @@ new file mode 100644
 +}  // namespace webrtc
 diff --git a/ringrtc/rffi/src/processed_audio_frame_processor.h b/ringrtc/rffi/src/processed_audio_frame_processor.h
 new file mode 100644
+index 0000000..84b2ec0
 --- /dev/null
 +++ b/ringrtc/rffi/src/processed_audio_frame_processor.h
 @@ -0,0 +1,43 @@
@@ -197,6 +186,7 @@ new file mode 100644
 +#endif  // RFFI_SRC_PROCESSED_AUDIO_FRAME_PROCESSOR_H__
 diff --git a/ringrtc/rffi/src/processed_audio_frame_processor_unittest.cc b/ringrtc/rffi/src/processed_audio_frame_processor_unittest.cc
 new file mode 100644
+index 0000000..77c0e8f
 --- /dev/null
 +++ b/ringrtc/rffi/src/processed_audio_frame_processor_unittest.cc
 @@ -0,0 +1,92 @@

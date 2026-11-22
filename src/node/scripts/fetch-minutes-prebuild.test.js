@@ -21,7 +21,7 @@ const PACKAGE = {
   config: {
     upstreamVersion: '2.69.7',
     tapApiVersion: 1,
-    releaseRepository: 'jiridudekusy/minutes-ringrtc',
+    releaseRepository: 'zmitko-uni/minutes-ringrtc',
   },
 };
 
@@ -71,7 +71,7 @@ void test('selects only a checksum-pinned Minutes GitHub release addon', () => {
   assert.deepEqual(selected, {
     asset: 'minutes-ringrtc-v2.69.7-minutes.3-darwin-arm64.node',
     sha256: crypto.createHash('sha256').update(bytes).digest('hex'),
-    url: 'https://github.com/jiridudekusy/minutes-ringrtc/releases/download/v2.69.7-minutes.3/minutes-ringrtc-v2.69.7-minutes.3-darwin-arm64.node',
+    url: 'https://github.com/zmitko-uni/minutes-ringrtc/releases/download/v2.69.7-minutes.3/minutes-ringrtc-v2.69.7-minutes.3-darwin-arm64.node',
     destination: 'build/darwin/libringrtc-arm64.node',
   });
 });

@@ -66,6 +66,10 @@
     {
       "path": "src/rust/src/webrtc/peer_connection_factory.rs",
       "purpose": "Wire fork-owned tap state into the existing WebRTC factory without recording policy."
+    },
+    {
+      "path": "src/rust/src/webrtc_include/audio_device_intf.h",
+      "purpose": "Declare the post-APM tap callbacks shared with the fork-owned WebRTC processed-audio frame processor."
     }
   ],
   "forkOwnedPaths": [

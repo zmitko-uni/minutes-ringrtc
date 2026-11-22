@@ -3,7 +3,7 @@
   "version": "2.74.0-minutes.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jiridudekusy/minutes-ringrtc.git",
+    "url": "https://github.com/zmitko-uni/minutes-ringrtc.git",
     "directory": "src/node"
   },
   "description": "Minutes-compatible RingRTC with versioned call-audio and outgoing-video taps.",
@@ -37,7 +37,7 @@
   "config": {
     "upstreamVersion": "2.74.0",
     "tapApiVersion": 1,
-    "releaseRepository": "jiridudekusy/minutes-ringrtc"
+    "releaseRepository": "zmitko-uni/minutes-ringrtc"
   },
   "author": "",
   "license": "AGPL-3.0-only",

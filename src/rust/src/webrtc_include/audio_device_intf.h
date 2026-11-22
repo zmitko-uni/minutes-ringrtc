@@ -156,6 +156,12 @@ typedef struct {
   // Playout delay
   int32_t (*playoutDelay)(Borrowed<void> adm_borrowed,
                           Borrowed<uint16_t> delayMS);
+
+  // Minutes: local capture after WebRTC audio processing (AEC/NS/AGC/HPF).
+  bool (*audioTapIsActive)(Borrowed<void> adm_borrowed);
+  bool (*pushProcessedLocalAudio)(Borrowed<void> adm_borrowed,
+                                  Borrowed<const int16_t> samples,
+                                  size_t sample_count);
 } AudioDeviceCallbacks;
 
 #endif  // RFFI_API_AUDIO_DEVICE_INTF_H__

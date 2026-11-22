@@ -24,7 +24,7 @@ from minutes_version import (
 
 UPSTREAM_REPOSITORY = "signalapp/ringrtc"
 UPSTREAM_URL = "https://github.com/signalapp/ringrtc.git"
-DEFAULT_FORK_REPOSITORY = "jiridudekusy/minutes-ringrtc"
+DEFAULT_FORK_REPOSITORY = "zmitko-uni/minutes-ringrtc"
 SAFE_REF_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]*$")
 AUTOMATIC_JSON_CONFLICTS = {
     "src/node/package.json",
