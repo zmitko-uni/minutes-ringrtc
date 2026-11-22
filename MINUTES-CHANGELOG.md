@@ -5,7 +5,16 @@ upstream release history remains in `CHANGELOG.md`.
 
 ## [Unreleased]
 
+- (add release notes)
+
+## [2.74.0-minutes.1] - 2026-11-22
+
 - Synchronize the Signal RingRTC baseline from 2.71.0 to 2.74.0.
+- Rebase the post-APM audio tap WebRTC patch onto WebRTC 8037b; the tap
+  callbacks now live in the RingRTC-owned `audio_device_intf.h`.
+- Build Windows native addons with Windows SDK 10.0.28000 on `windows-2022`
+  as required by WebRTC 8037b.
+- Publish prebuilds from `zmitko-uni/minutes-ringrtc`.
 
 - (add release notes)
 
