@@ -1,0 +1,30 @@
+name: Minutes Windows toolchain probe
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/minutes_win_probe.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [windows-2025, windows-2022]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Report Visual Studio and Windows SDK
+        shell: pwsh
+        run: |
+          Write-Host "== Visual Studio installs"
+          Get-ChildItem 'C:\Program Files\Microsoft Visual Studio' -ErrorAction SilentlyContinue | ForEach-Object { Write-Host $_.FullName; Get-ChildItem $_.FullName -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "   $($_.Name)" } }
+          Write-Host "== vswhere"
+          & 'C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe' -all -products * -format json | Out-String | Write-Host
+          Write-Host "== Windows Kits include dirs"
+          Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Include' -ErrorAction SilentlyContinue | ForEach-Object { Write-Host "$($_.Name)  um-exists=$(Test-Path (Join-Path $_.FullName 'um'))" }
+          Write-Host "== env"
+          Get-ChildItem Env: | Where-Object { $_.Name -match 'VS|WindowsSDK|VCINSTALL|GYP' } | ForEach-Object { Write-Host "$($_.Name)=$($_.Value)" }
