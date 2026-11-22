@@ -23,6 +23,8 @@ pub enum RingRtcError {
     OptionValueNotSet(String, String),
     #[error("Couldn't register an actor")]
     RegisterActor,
+    #[error("Timed out waiting for termination: {0}")]
+    TerminateTimeout(String),
 
     // Call Manager error codes
     #[error("Active call already in progress, id: {0}")]
@@ -65,9 +67,6 @@ pub enum RingRtcError {
     CreateVideoTrack,
     #[error("Unable to create C++ AudioTrack")]
     CreateAudioTrack,
-    #[error("Unable to query Audio Devices")]
-    #[allow(dead_code)]
-    QueryAudioDevices,
     #[allow(dead_code)]
     #[error("Unable to set Audio Device")]
     SetAudioDevice,

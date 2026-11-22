@@ -60,6 +60,11 @@ use crate::{
     },
 };
 
+/// Default SVC mode
+const DEFAULT_SVC_MODE: &str = "L3T3_KEY";
+/// Default SVC screenshare mode
+const DEFAULT_SVC_MODE_FOR_SCREENSHARE: &str = "L1T3";
+
 pub const MAX_MESSAGE_AGE: Duration = Duration::from_secs(60);
 const TIME_OUT_PERIOD: Duration = Duration::from_secs(60);
 
@@ -94,7 +99,7 @@ macro_rules! handle_active_call_api {
                 error!("{} failed: {}", stringify!($f), err);
                 let _ = call_manager.internal_api_error(err);
             }
-        })
+        });
     }};
 }
 
@@ -134,7 +139,7 @@ macro_rules! handle_api {
             if let Err(err) = $f(&mut call_manager $( , $a)*) {
                 error!("{} failed: {}", stringify!($f), err);
             }
-        })
+        });
     }};
 }
 
@@ -391,11 +396,111 @@ struct GroupCallClient {
     active: bool,
 }
 
-#[derive(Debug)]
+/// SVC configuration.
+#[derive(Clone, Debug, PartialEq)]
 pub struct SvcConfig {
+    /// The scalability mode to use.
     pub mode: String,
+    /// The scalability mode to use for screenshare.
     pub mode_for_screenshare: String,
+    /// The optional maximum bitrate (bps).
     pub max_bitrate_bps: Option<i32>,
+}
+
+impl Default for SvcConfig {
+    fn default() -> Self {
+        Self {
+            mode: DEFAULT_SVC_MODE.to_owned(),
+            mode_for_screenshare: DEFAULT_SVC_MODE_FOR_SCREENSHARE.to_owned(),
+            max_bitrate_bps: None,
+        }
+    }
+}
+
+impl SvcConfig {
+    /// This function takes a scalability mode string as input and validates if it exists
+    /// within a predefined set of allowed scalability modes. The valid scalability
+    /// modes include various combinations such as "L1T1", "L2T1h", and so on.
+    pub fn is_valid_scalability_mode(mode: &str) -> bool {
+        const VALID_MODES: [&str; 34] = [
+            "L1T1",
+            "L1T2",
+            "L1T3",
+            "L2T1",
+            "L2T1h",
+            "L2T1_KEY",
+            "L2T2",
+            "L2T2h",
+            "L2T2_KEY",
+            "L2T2_KEY_SHIFT",
+            "L2T3",
+            "L2T3h",
+            "L2T3_KEY",
+            "L3T1",
+            "L3T1h",
+            "L3T1_KEY",
+            "L3T2",
+            "L3T2h",
+            "L3T2_KEY",
+            "L3T3",
+            "L3T3h",
+            "L3T3_KEY",
+            "S2T1",
+            "S2T1h",
+            "S2T2",
+            "S2T2h",
+            "S2T3",
+            "S2T3h",
+            "S3T1",
+            "S3T1h",
+            "S3T2",
+            "S3T2h",
+            "S3T3",
+            "S3T3h",
+        ];
+        VALID_MODES.contains(&mode)
+    }
+
+    /// Checks if the provided screenshare scalability mode is valid.
+    /// The valid screenshare scalability modes are: `"L1T1"`, `"L1T2"`, and `"L1T3"`.
+    pub fn is_valid_screenshare_scalability_mode(mode: &str) -> bool {
+        const VALID_MODES: [&str; 3] = ["L1T1", "L1T2", "L1T3"];
+        VALID_MODES.contains(&mode)
+    }
+
+    /// Validates and, if necessary, corrects the scalability modes in the given `SvcConfig`
+    /// structure. Consumes the given `SvcConfig` and returns a new one with updated
+    /// scalability mode values.
+    ///
+    /// The invalid values, will be changed to the appropriate default values.
+    pub fn validate_and_correct_if_necessary(svc_config: SvcConfig) -> SvcConfig {
+        let SvcConfig {
+            mode,
+            mode_for_screenshare,
+            max_bitrate_bps,
+        } = svc_config;
+        let mode = if Self::is_valid_scalability_mode(&mode) {
+            mode
+        } else {
+            warn!("SVC mode correction: '{mode}' -> '{}'", DEFAULT_SVC_MODE);
+            DEFAULT_SVC_MODE.to_owned()
+        };
+        let mode_for_screenshare =
+            if Self::is_valid_screenshare_scalability_mode(&mode_for_screenshare) {
+                mode_for_screenshare
+            } else {
+                warn!(
+                    "SVC screenshare mode correction: '{mode_for_screenshare}' -> '{}'",
+                    DEFAULT_SVC_MODE_FOR_SCREENSHARE
+                );
+                DEFAULT_SVC_MODE_FOR_SCREENSHARE.to_owned()
+            };
+        SvcConfig {
+            mode,
+            mode_for_screenshare,
+            max_bitrate_bps,
+        }
+    }
 }
 
 pub struct CreateGroupCallParams {
@@ -616,10 +721,10 @@ where
         remote_peer: <T as Platform>::AppRemotePeer,
         call_media_type: CallMediaType,
         local_device_id: DeviceId,
-    ) -> Result<()> {
+    ) {
         info!("API:call():");
         let call_id = CallId::random();
-        self.create_outgoing_call(remote_peer, call_id, call_media_type, local_device_id)
+        self.create_outgoing_call(remote_peer, call_id, call_media_type, local_device_id);
     }
 
     /// Create an outgoing call with specified CallId.
@@ -629,7 +734,7 @@ where
         call_id: CallId,
         call_media_type: CallMediaType,
         local_device_id: DeviceId,
-    ) -> Result<()> {
+    ) {
         info!("API:create_outgoing_call({}):", call_id);
 
         let mut call_manager = self.clone();
@@ -641,17 +746,17 @@ where
                 error!("Handle call failed: {}", err);
                 call_manager.internal_create_api_error(&remote_peer_error, call_id, err);
             }
-        })
+        });
     }
 
     /// Accept an incoming call.
-    pub fn accept_call(&mut self, call_id: CallId) -> Result<()> {
-        handle_active_call_api!(self, CallManager::handle_accept_call, call_id)
+    pub fn accept_call(&mut self, call_id: CallId) {
+        handle_active_call_api!(self, CallManager::handle_accept_call, call_id);
     }
 
     /// Drop the active call.
-    pub fn drop_call(&mut self, call_id: CallId) -> Result<()> {
-        handle_active_call_api!(self, CallManager::handle_drop_call, call_id)
+    pub fn drop_call(&mut self, call_id: CallId) {
+        handle_active_call_api!(self, CallManager::handle_drop_call, call_id);
     }
 
     /// Proceed with the outgoing call.
@@ -661,7 +766,7 @@ where
         app_call_context: <T as Platform>::AppCallContext,
         call_config: CallConfig,
         audio_levels_interval: Option<Duration>,
-    ) -> Result<()> {
+    ) {
         handle_active_call_api!(
             self,
             CallManager::handle_proceed,
@@ -669,22 +774,22 @@ where
             app_call_context,
             call_config,
             audio_levels_interval
-        )
+        );
     }
 
     /// OK for the library to continue to send signaling messages.
-    pub fn message_sent(&mut self, call_id: CallId) -> Result<()> {
-        handle_active_call_api!(self, CallManager::handle_message_sent, call_id)
+    pub fn message_sent(&mut self, call_id: CallId) {
+        handle_active_call_api!(self, CallManager::handle_message_sent, call_id);
     }
 
     /// The previous message send failed. Handle, but continue to send signaling messages.
-    pub fn message_send_failure(&mut self, call_id: CallId) -> Result<()> {
-        handle_active_call_api!(self, CallManager::handle_message_send_failure, call_id)
+    pub fn message_send_failure(&mut self, call_id: CallId) {
+        handle_active_call_api!(self, CallManager::handle_message_send_failure, call_id);
     }
 
     /// Local hangup of the active call.
-    pub fn hangup(&mut self) -> Result<()> {
-        handle_active_call_api!(self, CallManager::handle_hangup)
+    pub fn hangup(&mut self) {
+        handle_active_call_api!(self, CallManager::handle_hangup);
     }
 
     /// removes outstanding group ring. If expected user ID is specified, verifies the pending
@@ -757,7 +862,7 @@ where
         remote_peer: <T as Platform>::AppRemotePeer,
         call_id: CallId,
         received: signaling::ReceivedOffer,
-    ) -> Result<()> {
+    ) {
         info!("API:received_offer():");
 
         let mut call_manager = self.clone();
@@ -767,7 +872,7 @@ where
                 error!("Handle received offer failed: {}", err);
                 call_manager.internal_create_api_error(&remote_peer_error, call_id, err);
             }
-        })
+        });
     }
 
     /// Received answer from application.
@@ -776,14 +881,14 @@ where
         remote_peer: <T as Platform>::AppRemotePeer,
         call_id: CallId,
         received: signaling::ReceivedAnswer,
-    ) -> Result<()> {
+    ) {
         handle_active_call_api!(
             self,
             CallManager::handle_received_answer,
             remote_peer,
             call_id,
             received
-        )
+        );
     }
 
     /// Received ICE candidates from application.
@@ -792,14 +897,14 @@ where
         remote_peer: <T as Platform>::AppRemotePeer,
         call_id: CallId,
         received: signaling::ReceivedIce,
-    ) -> Result<()> {
+    ) {
         handle_active_call_api!(
             self,
             CallManager::handle_received_ice,
             remote_peer,
             call_id,
             received
-        )
+        );
     }
 
     /// Received hangup message from application.
@@ -808,14 +913,14 @@ where
         remote_peer: <T as Platform>::AppRemotePeer,
         call_id: CallId,
         received: signaling::ReceivedHangup,
-    ) -> Result<()> {
+    ) {
         handle_active_call_api!(
             self,
             CallManager::handle_received_hangup,
             remote_peer,
             call_id,
             received
-        )
+        );
     }
 
     /// Received busy message from application.
@@ -824,14 +929,14 @@ where
         remote_peer: <T as Platform>::AppRemotePeer,
         call_id: CallId,
         received: signaling::ReceivedBusy,
-    ) -> Result<()> {
+    ) {
         handle_active_call_api!(
             self,
             CallManager::handle_received_busy,
             remote_peer,
             call_id,
             received
-        )
+        );
     }
 
     /// Received a call message from the application.
@@ -842,7 +947,7 @@ where
         local_device_id: DeviceId,
         message: Vec<u8>,
         message_age: Duration,
-    ) -> Result<()> {
+    ) {
         handle_api!(
             self,
             CallManager::handle_received_call_message,
@@ -851,12 +956,12 @@ where
             local_device_id,
             message,
             message_age
-        )
+        );
     }
 
     /// Received a HTTP response from the application.
     pub fn received_http_response(&mut self, request_id: u32, response: Option<http::Response>) {
-        let _ = handle_api!(
+        handle_api!(
             self,
             CallManager::handle_received_http_response,
             request_id,
@@ -868,8 +973,8 @@ where
     ///
     /// Conclude all calls and clear active callId.  Do not notify the
     /// application at the conclusion.
-    pub fn reset(&mut self) -> Result<()> {
-        handle_api!(self, CallManager::handle_reset)
+    pub fn reset(&mut self) {
+        handle_api!(self, CallManager::handle_reset);
     }
 
     /// Close down the Call Manager.
@@ -882,7 +987,7 @@ where
 
         if !self.worker.stopper().has_been_stopped() {
             // Clear out any outstanding calls
-            let _ = self.reset();
+            self.reset();
 
             self.worker.stopper().stop_all_and_join();
 
@@ -928,6 +1033,13 @@ where
             Some(v) => Ok(v == call_id),
             None => Ok(false),
         }
+    }
+
+    /// Log a special "bookmark" message. Intended for debugging use; clients
+    /// may present a button to users to flag a particular time when they are
+    /// seeing a problem.
+    pub fn log_bookmark_message() {
+        warn!("ringrtc_log_bookmark!");
     }
 
     /// Checks if the CallManager is busy with either a 1:1 or group call.
@@ -989,7 +1101,7 @@ where
     }
 
     /// Spawn a task on the worker thread, unless we are shutting down.
-    fn worker_spawn<F>(&mut self, f: F) -> Result<()>
+    fn worker_spawn<F>(&mut self, f: F)
     where
         F: FnOnce() + Send + 'static,
     {
@@ -998,14 +1110,13 @@ where
         } else {
             warn!("worker_spawn(): worker unavailable");
         }
-        Ok(())
     }
 
     #[cfg(feature = "sim")]
-    fn worker_start_sync(&mut self, sync_condvar: Arc<(Mutex<bool>, Condvar)>) -> Result<()> {
+    fn worker_start_sync(&mut self, sync_condvar: Arc<(Mutex<bool>, Condvar)>) {
         self.worker_spawn(move || {
             // signal the condvar
-            info!("sync_worker_thread(): syncing");
+            info!("worker_start_sync(): syncing");
             let (mutex, condvar) = &*sync_condvar;
             if let Ok(mut terminate_complete) = mutex.lock() {
                 *terminate_complete = true;
@@ -1014,7 +1125,7 @@ where
                 // Not much else to do here.
                 error!("Close call manager mutex poisoned");
             }
-        })
+        });
     }
 
     #[cfg(feature = "sim")]
@@ -1041,10 +1152,10 @@ where
     }
 
     #[cfg(feature = "sim")]
-    fn sync_worker_thread(&mut self) -> Result<()> {
+    pub fn sync_worker_thread(&mut self) -> Result<()> {
         // cycle a condvar through the worker thread
         let condvar = Arc::new((Mutex::new(false), Condvar::new()));
-        self.worker_start_sync(condvar.clone())?;
+        self.worker_start_sync(condvar.clone());
 
         // This blocks while the thread synchronizes.
         self.wait_worker_sync(condvar)
@@ -1111,63 +1222,81 @@ where
         self.send_next_message(Some(message_item))
     }
 
-    /// Concludes the specified Call.
+    /// Terminates the specified Call.
     ///
-    /// Conclusion includes:
+    /// Termination includes:
     /// - Trimming the message_queue, before possibly sending hangup message(s)
     /// - [optional] notifying application about call ended reason
-    /// - closing down Call object
+    /// - Closing down Call object
     /// - [optional] sending hangup on all connections via RTP data
     /// - [optional] sending Signal hangup message
+    ///
+    /// Don't return early on error; log it and continue to ensure a complete
+    /// teardown of the call.
     fn terminate_call(
         &mut self,
         mut call: Call<T>,
         hangup: Option<signaling::Hangup>,
         reason: Option<CallEndReason>,
-    ) -> Result<()> {
+    ) {
         let call_id = call.call_id();
 
         info!("terminate_call(): call_id: {}", call_id);
 
-        self.trim_messages(call_id)?;
+        if let Err(err) = self.trim_messages(call_id) {
+            error!("terminate_call(): failed to trim messages: {}", err);
+        }
 
-        if let Some(reason) = reason {
-            let remote_peer = call.remote_peer()?;
-            let summary = call
-                .summary()
-                .build_call_summary(Some(call_id.call_summary_hash()), reason);
-            self.on_call_ended(&remote_peer, call_id, reason, summary)?;
+        if let Some(reason) = reason
+            && let Err(err) = try_scoped(|| {
+                let remote_peer = call.remote_peer()?;
+                let summary = call
+                    .summary()
+                    .build_call_summary(Some(call_id.call_summary_hash()), reason);
+                self.on_call_ended(&remote_peer, call_id, reason, summary)
+            })
+        {
+            error!("terminate_call(): failed to notify call ended: {}", err);
         }
 
         if let Some(hangup) = hangup {
             // All connections send hangup via RTP data.
-            call.inject_send_hangup_via_rtp_data_to_all(hangup)?;
+            if let Err(err) = call.inject_send_hangup_via_rtp_data_to_all(hangup) {
+                error!("terminate_call(): failed to hangup via RTP data: {}", err);
+            }
         }
 
         let mut call_manager = self.clone();
         self.worker_spawn(move || {
-            let err = try_scoped(|| {
-                if let Some(hangup) = hangup {
-                    // If we want to send a hangup message, be sure that
-                    // the call actually should send one.
-                    if call.should_send_hangup() {
-                        call.send_hangup_via_signaling_to_all(hangup)?;
-                    }
-                }
-                call_manager.terminate_and_drop_call(call_id)
-            });
-            if let Err(err) = err {
-                error!("Conclude call failed: {}", err);
-                if let Ok(remote_peer) = call.remote_peer() {
-                    let _ = call_manager.on_call_ended(
-                        &remote_peer,
-                        call_id,
-                        CallEndReason::InternalFailure,
-                        CallSummary::default(),
-                    );
-                }
+            let mut failed = false;
+
+            // If we want to send a hangup message, be sure that the call
+            // actually should send one.
+            if let Some(hangup) = hangup
+                && call.should_send_hangup()
+                && let Err(err) = call.send_hangup_via_signaling_to_all(hangup)
+            {
+                error!("terminate_call(): failed to hangup via signaling: {}", err);
+                failed = true;
             }
-        })
+
+            if let Err(err) = call_manager.terminate_and_drop_call(call_id) {
+                error!(
+                    "terminate_call(): failed to terminate and drop call: {}",
+                    err
+                );
+                failed = true;
+            }
+
+            if failed && let Ok(remote_peer) = call.remote_peer() {
+                let _ = call_manager.on_call_ended(
+                    &remote_peer,
+                    call_id,
+                    CallEndReason::InternalFailure,
+                    CallSummary::default(),
+                );
+            }
+        });
     }
 
     /// Terminates the active call.
@@ -1189,7 +1318,8 @@ where
             None
         };
 
-        self.terminate_call(call, hangup, Some(reason))
+        self.terminate_call(call, hangup, Some(reason));
+        Ok(())
     }
 
     /// Handle call() API from application.
@@ -1267,7 +1397,8 @@ where
     ) -> Result<()> {
         self.clear_active_call()?;
         self.release_busy()?;
-        self.terminate_call(active_call, hangup, Some(reason))
+        self.terminate_call(active_call, hangup, Some(reason));
+        Ok(())
     }
 
     /// Handle drop_call() API from application.
@@ -1373,7 +1504,7 @@ where
                     .should_send_hangup_on_failure()
                     .then_some(signaling::Hangup::Normal);
 
-                self.terminate_call(call, hangup, Some(CallEndReason::SignalingFailure))?;
+                self.terminate_call(call, hangup, Some(CallEndReason::SignalingFailure));
             }
         } else {
             info!("handle_message_send_failure(): no matching call found");
@@ -1526,12 +1657,12 @@ where
                     active_call.unwrap(),
                     Some(signaling::Hangup::Normal),
                     Some(reason),
-                )?;
+                );
             }
             ActiveCallAction::TerminateWithoutSendingHangup(reason) => {
                 self.clear_active_call()?;
                 *busy = false;
-                self.terminate_call(active_call.unwrap(), None, Some(reason))?;
+                self.terminate_call(active_call.unwrap(), None, Some(reason));
             }
         }
 
@@ -2018,6 +2149,9 @@ where
     }
 
     /// Handle receiving an HTTP response from the application.
+    // Infallible, but `handle_api!` matches on the handler's error, and this handler must
+    // return a Result.
+    #[allow(clippy::unnecessary_wraps)]
     fn handle_received_http_response(
         &mut self,
         request_id: u32,
@@ -2048,7 +2182,7 @@ where
         // foreach call, terminate without notifying application
         for call in calls {
             info!("reset(): terminating call_id: {}", call.call_id());
-            let _ = self.terminate_call(call, Some(signaling::Hangup::Normal), None);
+            self.terminate_call(call, Some(signaling::Hangup::Normal), None);
         }
 
         self.clear_active_call()?;
@@ -3125,6 +3259,8 @@ where
 
         let asset_registry = { self.asset_manager.read()?.get_registry() };
 
+        let svc_config = svc_config.map(SvcConfig::validate_and_correct_if_necessary);
+
         let client = Client::start(ClientStartParams {
             group_id,
             client_id,
@@ -3237,6 +3373,8 @@ where
         );
 
         let asset_registry = { self.asset_manager.read()?.get_registry() };
+
+        let svc_config = svc_config.map(SvcConfig::validate_and_correct_if_necessary);
 
         let client = Client::start(ClientStartParams {
             group_id: room_id,
@@ -3567,5 +3705,130 @@ mod tests {
             },
             "not a ring intention",
         );
+    }
+
+    const SVC_VALID_MODES: [&str; 34] = [
+        "L1T1",
+        "L1T2",
+        "L1T3",
+        "L2T1",
+        "L2T1h",
+        "L2T1_KEY",
+        "L2T2",
+        "L2T2h",
+        "L2T2_KEY",
+        "L2T2_KEY_SHIFT",
+        "L2T3",
+        "L2T3h",
+        "L2T3_KEY",
+        "L3T1",
+        "L3T1h",
+        "L3T1_KEY",
+        "L3T2",
+        "L3T2h",
+        "L3T2_KEY",
+        "L3T3",
+        "L3T3h",
+        "L3T3_KEY",
+        "S2T1",
+        "S2T1h",
+        "S2T2",
+        "S2T2h",
+        "S2T3",
+        "S2T3h",
+        "S3T1",
+        "S3T1h",
+        "S3T2",
+        "S3T2h",
+        "S3T3",
+        "S3T3h",
+    ];
+
+    const SVC_VALID_SCREENSHARE_MODES: [&str; 3] = ["L1T1", "L1T2", "L1T3"];
+
+    #[test]
+    fn test_svc_defaults() {
+        assert!(SvcConfig::is_valid_scalability_mode(DEFAULT_SVC_MODE));
+        assert!(SvcConfig::is_valid_screenshare_scalability_mode(
+            DEFAULT_SVC_MODE_FOR_SCREENSHARE
+        ));
+    }
+
+    #[test]
+    fn test_default_svc_config() {
+        assert_eq!(
+            SvcConfig::default(),
+            SvcConfig {
+                mode: DEFAULT_SVC_MODE.to_owned(),
+                mode_for_screenshare: DEFAULT_SVC_MODE_FOR_SCREENSHARE.to_owned(),
+                max_bitrate_bps: None,
+            }
+        )
+    }
+
+    #[test]
+    fn test_svc_config_correction() {
+        // Both modes are invalid and should both be corrected to their corresponding
+        // default values.
+        assert_eq!(
+            SvcConfig::validate_and_correct_if_necessary(SvcConfig {
+                mode: "abc123".to_owned(),
+                mode_for_screenshare: "abc123".to_owned(),
+                ..Default::default()
+            }),
+            SvcConfig::default()
+        );
+
+        // The mode is invalid and should be corrected to its default value.
+        assert_eq!(
+            SvcConfig::validate_and_correct_if_necessary(SvcConfig {
+                mode: "abc123".to_owned(),
+                ..Default::default()
+            }),
+            SvcConfig::default()
+        );
+
+        // The screen share mode is invalid and should be corrected to its
+        // default value.
+        assert_eq!(
+            SvcConfig::validate_and_correct_if_necessary(SvcConfig {
+                mode_for_screenshare: "abc123".to_owned(),
+                ..Default::default()
+            }),
+            SvcConfig::default()
+        );
+
+        // Select each valid, but not applicable mode as the screen share mode value.
+        // The screen share mode should be corrected to the default value.
+        for mode in SVC_VALID_MODES {
+            if mode != "L1T1" && mode != "L1T2" && mode != "L1T3" {
+                let config = SvcConfig {
+                    mode_for_screenshare: mode.to_owned(),
+                    ..Default::default()
+                };
+                assert_eq!(
+                    SvcConfig::validate_and_correct_if_necessary(config),
+                    SvcConfig::default(),
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_svc_config_validity_checks() {
+        for mode in SVC_VALID_MODES {
+            for screenshare_mode in SVC_VALID_SCREENSHARE_MODES {
+                let config = SvcConfig {
+                    mode: mode.to_owned(),
+                    mode_for_screenshare: screenshare_mode.to_owned(),
+                    ..Default::default()
+                };
+                let config_cloned = config.clone();
+                assert_eq!(
+                    config_cloned,
+                    SvcConfig::validate_and_correct_if_necessary(config)
+                );
+            }
+        }
     }
 }

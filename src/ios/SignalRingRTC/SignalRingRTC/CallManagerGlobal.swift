@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 //
 
-import SignalRingRTC.RingRTC
+import RingRTCFfi
 import WebRTC
 
 // Global singleton to guarantee certain things are only invoked
@@ -90,7 +90,8 @@ public class CallManagerGlobal {
         let fieldTrialsWithDefaults = fieldTrials.merging([
             "RingRTC-AnyAddressPortsKillSwitch": "Enabled",
             "RingRTC-PruneTurnPorts": "Enabled",
-            "WebRTC-Bwe-ProbingConfiguration": "skip_if_est_larger_than_fraction_of_max:0.99",
+            "WebRTC-Audio-NetEqSmartFlushing": "enabled:false",
+            "WebRTC-Bwe-ProbingConfiguration": "skip_if_est_larger_than_fraction_of_max:0.99,probe_max_allocation_without_alr:false",
             "WebRTC-IncreaseIceCandidatePriorityHostSrflx": "Enabled",
         ]) { (provided, _) in provided }
         RTCInitFieldTrialDictionary(fieldTrialsWithDefaults)
