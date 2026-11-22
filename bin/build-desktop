@@ -142,8 +142,10 @@ case "${BINARY_OR_LIB}" in
       fi
       ;;
     *)
-      echo "Unsupported BINARY_OR_LIB: ${BINARY_OR_LIB}"
-      exit 1
+      if [ "${BUILD_WHAT}" != "webrtc" ]; then
+        echo "Unsupported BINARY_OR_LIB: ${BINARY_OR_LIB}"
+        exit 1
+      fi
       ;;
 esac
 
@@ -154,7 +156,7 @@ if [ "${BUILD_WHAT}" = "all" ] || [ "${BUILD_WHAT}" = "webrtc" ]
 then
     echo "Building WebRTC for ${GN_ARCH}"
 
-    WEBRTC_COMMON_ARGS="target_cpu=\"${GN_ARCH}\" rtc_build_examples=false rtc_build_tools=false rtc_use_x11=false rtc_enable_sctp=false rtc_libvpx_build_vp9=true rtc_disable_trace_events=true use_siso=true rtc_opus_support_dred=true"
+    WEBRTC_COMMON_ARGS="target_cpu=\"${GN_ARCH}\" rtc_build_examples=false rtc_build_tools=false rtc_use_x11=false rtc_enable_sctp=false rtc_libvpx_build_vp9=true rtc_disable_trace_events=true use_siso=true rtc_opus_support_dred=true rtc_video_psnr=false"
 
     if [ "${BUILD_TYPE}" = "release" ]
     then

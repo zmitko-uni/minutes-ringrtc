@@ -87,8 +87,8 @@ jobs:
         if: runner.os == 'Windows'
         uses: ChristopheLav/windows-sdk-install@aceebd61475568479ce68465d0849f5de9a0bfe9 # v1
         with:
-          version-sdk: 26100
-          features: "OptionId.WindowsDesktopDebuggers"
+          version-sdk: 28000
+          features: "OptionId.UWPCPP,OptionId.DesktopCPPx64,OptionId.WindowsDesktopDebuggers"
       - name: Install Rust target
         shell: bash
         run: >-

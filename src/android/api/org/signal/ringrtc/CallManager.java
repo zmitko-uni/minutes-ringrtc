@@ -111,7 +111,8 @@ public class CallManager {
 
       Map<String, String> fieldTrialsWithDefaults = new HashMap<>();
       fieldTrialsWithDefaults.put("RingRTC-PruneTurnPorts", "Enabled");
-      fieldTrialsWithDefaults.put("WebRTC-Bwe-ProbingConfiguration", "skip_if_est_larger_than_fraction_of_max:0.99");
+      fieldTrialsWithDefaults.put("WebRTC-Audio-NetEqSmartFlushing", "enabled:false");
+      fieldTrialsWithDefaults.put("WebRTC-Bwe-ProbingConfiguration", "skip_if_est_larger_than_fraction_of_max:0.99,probe_max_allocation_without_alr:false");
       fieldTrialsWithDefaults.put("WebRTC-IncreaseIceCandidatePriorityHostSrflx", "Enabled");
       fieldTrialsWithDefaults.putAll(fieldTrials);
 
@@ -276,9 +277,14 @@ public class CallManager {
         .createAudioDeviceModule();
     } else {
       // Use the Java Audio Device Module.
+      AudioDeviceModuleLogger audioDeviceModuleLogger = new AudioDeviceModuleLogger();
       adm = JavaAudioDeviceModule.builder(context)
         .setUseHardwareAcousticEchoCanceler(!audioConfig.useSoftwareAec)
         .setUseHardwareNoiseSuppressor(!audioConfig.useSoftwareNs)
+        .setAudioRecordErrorCallback(audioDeviceModuleLogger)
+        .setAudioRecordStateCallback(audioDeviceModuleLogger)
+        .setAudioTrackErrorCallback(audioDeviceModuleLogger)
+        .setAudioTrackStateCallback(audioDeviceModuleLogger)
         .createAudioDeviceModule();
     }
 
@@ -1310,6 +1316,15 @@ public class CallManager {
 
   /**
    *
+   * Log a unique "marker" message. Can be used to expose a button to users to indicate
+   * when in the call they are experiencing a problem.
+   */
+  public void logBookmarkMessage() {
+    ringrtcLogBookmarkMessage();
+  }
+
+  /**
+   *
    * Creates and returns a GroupCall object. Defaults call to:
    * - videoEnabled == false
    * - audioEnabled == false
@@ -1418,7 +1433,7 @@ public class CallManager {
     return groupCall;
   }
 
-  /****************************************************************************
+  /* ***************************************************************************
    *
    * Below are only called by the native CM
    *
@@ -2794,4 +2809,6 @@ public class CallManager {
                                  byte[] authCredentialPresentation,
                                  byte[] rootKeyBytes)
     throws CallException;
+
+  private native void ringrtcLogBookmarkMessage();
 }
